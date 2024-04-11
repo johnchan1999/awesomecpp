@@ -12,6 +12,7 @@ EventLoop::EventLoop(Acceptor &acceptor)
       _acceptor(acceptor), _evtfd(createEventFd()), _mutex() {
   int listenfd = _acceptor.fd();
   addEpoolReadFd(listenfd);
+  addEpoolReadFd(_evtfd);
 }
 
 EventLoop::~EventLoop() {
@@ -40,7 +41,7 @@ void EventLoop::epoolWait() {
     cout << "---epoll_wait time out ------" << endl;
   } else {
     if (nready == (int)_evtList.size()) {
-      _evtList.resize(2 * nready);
+      _evtList.reserve(2 * nready);
     }
     for (int idx = 0; idx < nready; idx++) {
       int fd = _evtList[idx].data.fd;
@@ -49,8 +50,10 @@ void EventLoop::epoolWait() {
           handConnect();
         }
       } else if (fd == _evtfd) {
-        handleRead();
-        doPendingFunction();
+        if (_evtList[idx].events & EPOLLIN) {
+          handleRead();
+          doPendingFunction();
+        }
       } else {
         if (_evtList[idx].events & EPOLLIN) {
           handMessage(fd);
@@ -158,7 +161,7 @@ int EventLoop::createEventFd() {
   int fd = eventfd(10, 0);
   if (fd < 0) {
     perror("eventfd return -1");
-    return -1;
+    return fd;
   }
   return fd;
 }
