@@ -9,12 +9,15 @@ using std::endl;
 
 EventLoop::EventLoop(Acceptor &acceptor)
     : _epfd(createEpfd()), _evtList(1024), _isRunning(false),
-      _acceptor(acceptor), _evtfd(createEpfd()), _mutex() {
+      _acceptor(acceptor), _evtfd(createEventFd()), _mutex() {
   int listenfd = _acceptor.fd();
   addEpoolReadFd(listenfd);
 }
 
-EventLoop::~EventLoop() { close(_epfd); }
+EventLoop::~EventLoop() {
+  close(_epfd);
+  close(_evtfd);
+}
 
 void EventLoop::Loop() {
   _isRunning = true;
@@ -37,7 +40,7 @@ void EventLoop::epoolWait() {
     cout << "---epoll_wait time out ------" << endl;
   } else {
     if (nready == (int)_evtList.size()) {
-      _evtList.reserve(2 * nready);
+      _evtList.resize(2 * nready);
     }
     for (int idx = 0; idx < nready; idx++) {
       int fd = _evtList[idx].data.fd;

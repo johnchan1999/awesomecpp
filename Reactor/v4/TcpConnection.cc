@@ -96,5 +96,7 @@ bool TcpConnection::isClose() {
 }
 
 void TcpConnection::sendInLoop(const string &msg) {
-  _loop->runInLoop(std::bind(&TcpConnection::send, this, msg));
+  if (_loop) {
+    _loop->runInLoop(std::bind(&TcpConnection::send, this, msg));
+  }
 }

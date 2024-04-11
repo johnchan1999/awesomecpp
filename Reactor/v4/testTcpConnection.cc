@@ -17,7 +17,7 @@ public:
   void process() { _con->sendInLoop(_msg); }
 
 private:
-  const string _msg;
+  string _msg;
   TcpConnectionPtr _con;
 };
 
@@ -64,6 +64,8 @@ void test1() {
 void test2() {
   ThreadPool pool(4, 10);
   pool.start();
+
+  gPool = &pool;
 
   TcpServer tcpserver("127.0.0.1", 8888);
   tcpserver.setAllCallBack(std::move(onNewConnect), std::move(onMessage),
