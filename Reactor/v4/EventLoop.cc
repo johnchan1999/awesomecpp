@@ -9,7 +9,7 @@ using std::endl;
 
 EventLoop::EventLoop(Acceptor &acceptor)
     : _epfd(createEpfd()), _evtList(1024), _isRunning(false),
-      _acceptor(acceptor) {
+      _acceptor(acceptor), _evtfd(createEpfd()), _mutex() {
   int listenfd = _acceptor.fd();
   addEpoolReadFd(listenfd);
 }
@@ -45,6 +45,9 @@ void EventLoop::epoolWait() {
         if (_evtList[idx].events & EPOLLIN) {
           handConnect();
         }
+      } else if (fd == _evtfd) {
+        handleRead();
+        doPendingFunction();
       } else {
         if (_evtList[idx].events & EPOLLIN) {
           handMessage(fd);
@@ -61,7 +64,7 @@ void EventLoop::handConnect() {
     return;
   }
   addEpoolReadFd(connfd);
-  TcpConnectionPtr con(new TcpConnection(connfd));
+  TcpConnectionPtr con(new TcpConnection(connfd, this));
   con->setNewConnectCallBack(_onTcpConnect);
   con->setMessageCallBack(_onTcpMessage);
   con->setCloseCallBack(_onTcpClose);
@@ -129,4 +132,50 @@ void EventLoop::setMessageCallBack(TcpConnectionCallBack &&cb) {
 }
 void EventLoop::setCloseCallBack(TcpConnectionCallBack &&cb) {
   _onTcpClose = std::move(cb);
+}
+
+void EventLoop::wakeup() {
+  uint64_t one = 1;
+  ssize_t ret = write(_evtfd, &one, sizeof(uint64_t));
+  if (ret != sizeof(uint64_t)) {
+    perror("wakeup failed");
+    return;
+  }
+}
+
+void EventLoop::runInLoop(Functor &&cb) {
+  {
+    MutexLockGuard auto_mutex(_mutex);
+    _pendings.push_back(std::move(cb));
+  }
+  wakeup();
+}
+
+int EventLoop::createEventFd() {
+  int fd = eventfd(10, 0);
+  if (fd < 0) {
+    perror("eventfd return -1");
+    return -1;
+  }
+  return fd;
+}
+
+void EventLoop::handleRead() {
+  uint64_t two;
+  ssize_t ret = read(_evtfd, &two, sizeof(uint64_t));
+  if (ret != sizeof(uint64_t)) {
+    perror("handleRead failed");
+    return;
+  }
+}
+
+void EventLoop::doPendingFunction() {
+  vector<Functor> temp;
+  {
+    MutexLockGuard auto_mutex(_mutex);
+    temp.swap(_pendings);
+  }
+  for (auto &cb : temp) {
+    cb();
+  }
 }

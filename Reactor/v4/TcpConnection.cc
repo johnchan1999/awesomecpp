@@ -1,13 +1,14 @@
 #include "TcpConnection.h"
+#include "EventLoop.h"
 #include <iostream>
 #include <sstream>
 #include <sys/socket.h>
 using std::cout;
 using std::endl;
 using std::ostringstream;
-TcpConnection::TcpConnection(int fd)
+TcpConnection::TcpConnection(int fd, EventLoop *loop)
     : _socketIO(fd), _socket(fd), _localAddr(getLocalAddr()),
-      _peerAddr(getPeerAddr()) {}
+      _peerAddr(getPeerAddr()), _loop(loop) {}
 
 TcpConnection::~TcpConnection() {}
 
@@ -92,4 +93,8 @@ bool TcpConnection::isClose() {
   char buf[10] = {0};
   int ret = ::recv(_socket.fd(), buf, sizeof(buf), MSG_PEEK);
   return (0 == ret);
+}
+
+void TcpConnection::sendInLoop(const string &msg) {
+  _loop->runInLoop(std::bind(&TcpConnection::send, this, msg));
 }

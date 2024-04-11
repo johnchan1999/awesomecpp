@@ -1,9 +1,12 @@
 #ifndef __EVENTLOOP_H__
 #define __EVENTLOOP_H__
+
+#include "MutexLock.h"
 #include "TcpConnection.h"
 #include <functional>
 #include <map>
 #include <memory>
+#include <sys/eventfd.h>
 #include <vector>
 using std::function;
 using std::map;
@@ -13,6 +16,7 @@ class TcpConnection;
 class Acceptor;
 using TcpConnectionPtr = shared_ptr<TcpConnection>;
 using TcpConnectionCallBack = function<void(const TcpConnectionPtr &)>;
+using Functor = function<void()>;
 class EventLoop {
   // using TcpConnectionPtr = shared_ptr<TcpConnection>;
 public:
@@ -25,6 +29,9 @@ public:
   void setMessageCallBack(TcpConnectionCallBack &&cb);
   void setCloseCallBack(TcpConnectionCallBack &&cb);
 
+  void wakeup();
+  void runInLoop(Functor &&cb);
+
 private:
   void epoolWait();
   void handConnect();
@@ -33,6 +40,10 @@ private:
   int createEpfd();
   void addEpoolReadFd(int fd);
   void delEpoolReadFd(int fd);
+
+  int createEventFd();
+  void handleRead();
+  void doPendingFunction();
 
 private:
   int _epfd;
@@ -45,7 +56,9 @@ private:
   TcpConnectionCallBack _onTcpMessage;
   TcpConnectionCallBack _onTcpClose;
 
-  int evtfd;
+  int _evtfd;
+  vector<Functor> _pendings;
+  MutexLock _mutex;
 };
 
 #endif // !__EVENTLOOP_H__

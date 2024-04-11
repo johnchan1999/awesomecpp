@@ -7,11 +7,12 @@
 #include <memory>
 using std::function;
 class TcpConnection;
+class EventLoop;
 using TcpConnectionPtr = std::shared_ptr<TcpConnection>;
 using TcpConnectionCallBack = function<void(const TcpConnectionPtr &)>;
 class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
 public:
-  explicit TcpConnection(int fd);
+  explicit TcpConnection(int fd, EventLoop *loop);
   ~TcpConnection();
 
   void send(const string &msg);
@@ -27,6 +28,8 @@ public:
   void handleMessageCallBack();
   void handleCloseCallBack();
 
+  void sendInLoop(const string &msg);
+
 private:
   InetAddress getLocalAddr();
   InetAddress getPeerAddr();
@@ -40,6 +43,8 @@ private:
   TcpConnectionCallBack _onTcpConnect;
   TcpConnectionCallBack _onTcpMessage;
   TcpConnectionCallBack _onTcpClose;
+
+  EventLoop *_loop;
 };
 
 #endif
