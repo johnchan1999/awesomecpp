@@ -3,6 +3,7 @@
 #include "TcpConnection.h"
 #include "TcpServer.h"
 #include "ThreadPool.h"
+#include <cctype>
 #include <iostream>
 #include <unistd.h>
 using std::cout;
@@ -14,7 +15,16 @@ class MyTask {
 public:
   MyTask(const string &msg, const TcpConnectionPtr &con)
       : _msg(msg), _con(con) {}
-  void process() { _con->sendInLoop(_msg); }
+  void process() {
+    toUpper();
+    _con->sendInLoop(_msg);
+  }
+
+  void toUpper() {
+    for (char &c : _msg) {
+      std::toupper(c);
+    }
+  }
 
 private:
   string _msg;
@@ -27,13 +37,14 @@ void onNewConnect(const TcpConnectionPtr &con) {
 void onMessage(const TcpConnectionPtr &con) {
   string msg = con->receive();
   cout << ">>receive from client message is " << msg << endl;
-
-  // string msg1("EchoCloud:");
-  // string cloud = u8"\U0001F329";
-  // msg1 += cloud;
-  // msg1 += msg;
+  string msg1 = u8"\U0001F300";
+  string msg2("EchoCloud:");
+  msg1 += msg2;
+  string cloud = u8"\U0001F63B";
+  msg1 += cloud;
+  msg1 += msg;
   // con->send(msg1);
-  MyTask task(msg, con);
+  MyTask task(msg1, con);
   gPool->addTask(std::bind(&MyTask::process, task));
 }
 void onClose(const TcpConnectionPtr &con) {
