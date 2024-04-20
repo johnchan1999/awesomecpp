@@ -1,8 +1,10 @@
 #ifndef __TASK_H__
 #define __TASK_H__
+#include "Token.h"
 #include <algorithm>
 #include <string>
 #include <wfrest/HttpServer.h>
+#include <wfrest/json.hpp>
 #include <workflow/WFTask.h>
 using std::string;
 using namespace wfrest;
@@ -28,11 +30,17 @@ public:
 
   void RegisterSignIn(const HttpReq *req, HttpResp *resp, SeriesWork *series);
 
-  void RegisterSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp);
+  void RegisterSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp, string name,
+                           string encodePassword, SeriesWork *series);
+
+  void RegisterSignInRedis(WFRedisTask *redistask);
 
   void LoginSignIn(const HttpReq *req, HttpResp *resp, SeriesWork *series);
 
-  void LoginSignInMysql(WFMySQLTask *mysqltask);
+  void LoginSignInRedis(WFRedisTask *redistask, HttpResp *resp, string name,
+                        string encodePassword, string salt_value);
+  void LoginSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp, string name,
+                        string encodePassword, string salt_value);
 
   void UserInfo(const HttpReq *req, HttpResp *resp, SeriesWork *series);
 

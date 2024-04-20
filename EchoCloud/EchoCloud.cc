@@ -9,10 +9,10 @@
 using std::cout;
 using namespace wfrest;
 using std::bind;
-using std::endl;
+// using std::endl;
 using std::function;
 using std::string;
-using std::vector;
+// using std::vector;
 using namespace std::placeholders;
 
 EchoCloud::EchoCloud(int cnt, Task &task) : _waitGroup(cnt), _task(task) {}
@@ -68,13 +68,21 @@ void EchoCloud::loadStaticResourceModule() {
 }
 
 void EchoCloud::loadUserRegisterModule() {
-  _HttpServer.POST("/user/signup",
-                   function<void(const HttpReq *, HttpResp *, SeriesWork *)>(
-                       bind(&Task::RegisterSignIn, _task, std::placeholders::_1,
-                            std::placeholders::_2, std::placeholders::_3)));
+  _HttpServer.POST(
+      "/user/signup",
+      function<void(const HttpReq *, HttpResp *, SeriesWork *)>(
+          bind(&Task::RegisterSignIn, &_task, std::placeholders::_1,
+               std::placeholders::_2, std::placeholders::_3)));
 }
 
-void EchoCloud::loadUserLoginModule() {}
+void EchoCloud::loadUserLoginModule() {
+  _HttpServer.POST("/user/signin",
+                   function<void(const HttpReq *, HttpResp *, SeriesWork *)>(
+                       bind(&Task::LoginSignIn, &_task, std::placeholders::_1,
+                            std::placeholders::_2, std::placeholders::_3)
+
+                           ));
+}
 
 void EchoCloud::loadUserInfoModule() {}
 
