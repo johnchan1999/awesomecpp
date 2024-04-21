@@ -4,6 +4,9 @@
 #include <vector>
 #include <workflow/MySQLMessage.h>
 #include <workflow/MySQLResult.h>
+#include <crypt.h>
+#include <random>
+
 using std::cout;
 using std::vector;
 
@@ -51,10 +54,11 @@ void Task::RegisterSignIn(const HttpReq *req, HttpResp *resp,
     string name = formkv["username"];
     string password = formkv["password"];
     cout << "name =" << name << ",password =" << password << "\n";
-    string salt_value;
-    salt_value = salt(password);
-    string encodePassword(crypt(password.c_str(), salt_value.c_str()));
 
+    string salt_value;
+    salt_value = generate_salt1(password);
+    cout << "salt_value=" << salt_value << "\n";
+    string encodePassword = hash_password(password, salt_value);
     cout << "mi wen :" << encodePassword << "\n";
 
     string mysqlurl("mysql://root:cj19991114@localhost");
@@ -97,18 +101,18 @@ void Task::RegisterSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp,
   if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
   {
     cout << "Query OK." << cursor.get_affected_rows() << "row affected \n";
-    resp->String("SUCCESS!");
+    resp->String("SUCCESS");
     string redisurl = "redis://127.0.0.1:6379";
     WFRedisTask *redisTask = WFTaskFactory::create_redis_task(
         redisurl, 0,
-        bind(&Task::RegisterSignInRedis, this, std::placeholders::_1));
+        bind(&Task::RegisterSignInRedis, this, std::placeholders::_1, resp));
     protocol::RedisRequest *req = redisTask->get_req();
     req->set_request("HSET", {"user", name, encodePassword});
     series->push_back(redisTask);
   }
   else
   {
-    resp->String("SignUp failed!");
+    resp->String("SignUp failed(mysql)!");
   }
 }
 // void Task::RegisterSignInRedis(WFRedisTask *redistask) {
@@ -116,14 +120,14 @@ void Task::RegisterSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp,
 //   protocol::RedisValue value;
 //   resp->get_result(value);
 // }
-void Task::RegisterSignInRedis(WFRedisTask *redistask)
+void Task::RegisterSignInRedis(WFRedisTask *redistask, HttpResp *resp)
 {
-  protocol::RedisResponse *resp = redistask->get_resp();
+  protocol::RedisResponse *redis_resp = redistask->get_resp();
   protocol::RedisValue value;
 
   // 获取结果
   int error = redistask->get_state();
-  resp->get_result(value);
+  redis_resp->get_result(value);
 
   // 检查任务状态以及响应结果
   if (error == WFT_STATE_SUCCESS && value.is_int())
@@ -166,8 +170,9 @@ void Task::LoginSignIn(const HttpReq *req, HttpResp *resp, SeriesWork *series)
     cout << "username =" << name << ", password =" << password << "\n";
 
     string salt_value;
-    salt_value = salt(password);
-    string encodePassword(crypt(password.c_str(), salt_value.c_str()));
+    salt_value = generate_salt1(password);
+    cout << "salt_value=" << salt_value << "\n";
+    string encodePassword = hash_password(password, salt_value);
     cout << "mi wen :" << encodePassword << "\n";
 
     // create redistask to save user information
@@ -236,7 +241,28 @@ void Task::LoginSignInRedis(WFRedisTask *redisTask, HttpResp *resp, string name,
       cout << "Found user in Redis, value = " << value.string_value() << "\n";
       if (value.string_value() == encodePassword)
       {
-        resp->String("Login SUCESS");
+        Token token(name, salt_value);
+        string tokenStr = token.genToken();
+        // 3.2构造一个JSON对象，发送给客户端
+        using Json = nlohmann::json;
+        Json msg;
+        Json data;
+        data["Token"] = tokenStr;
+        data["Username"] = name;
+        data["Location"] = "/static/view/home.html"; // 跳转到用户中心页面
+        msg["data"] = data;
+        resp->String(msg.dump()); // 序列化之后，发送给客户端
+
+        // // 3.3 将Token保存到数据库中
+        // auto nextTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
+        // string sql("REPLACE INTO cloudisk.tbl_user_token(user_name, user_token)VALUES('");
+        // sql += username + "', '" + tokenStr + "')";
+        // nextTask->get_req()->set_query(sql);
+        // series->push_back(nextTask);
+      }
+      else
+      {
+        resp->String("Login Failed");
       }
     }
     // ... 其他情况的处理 ...
@@ -349,17 +375,49 @@ void Task::FileRequireMysql(WFMySQLTask *mysqltask) {}
 
 void Task::FileUpload(const HttpReq *req, HttpResp *resp, SeriesWork *series) {}
 
-string Task::salt(string &password)
+string Task::generate_salt()
 {
+  const std::string salt_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
   std::random_device rd;
   std::mt19937 generator(rd());
+  std::uniform_int_distribution<> dist(0, salt_chars.size() - 1);
 
-  std::uniform_int_distribution<> distribution('!', '~');
+  std::string salt = "$6$"; // 使用SHA-512算法的标识
+  for (int i = 0; i < 16; i++)
+  { // 生成16个字符的盐值
+    salt += salt_chars[dist(generator)];
+  }
+  salt += '$'; // 末尾加上$符号，结束盐值部分
 
-  string salt;
+  return salt;
+}
 
-  std::generate_n(std::back_inserter(salt), 26,
-                  [&]()
-                  { return static_cast<char>(distribution(generator)); });
+string Task::hash_password(const std::string &password, const std::string &salt)
+{
+  // std::string salt = generate_salt();
+  // cout << "salt:" << salt << "\n";
+
+  std::string hashed_password = crypt(password.c_str(), salt.c_str());
+
+  if (hashed_password[0] == '*')
+  {
+    throw std::runtime_error("Password hashing failed.");
+  }
+
+  return hashed_password;
+}
+std::string Task::generate_salt1(const std::string &password)
+{
+  // 使用密码的哈希值作为伪随机数生成器的种子
+  std::hash<std::string> hasher;
+  size_t hashed_password = hasher(password);
+
+  // 将种子转化为字符串
+  std::stringstream ss;
+  ss << std::hex << hashed_password;
+
+  // 截取特定长度作为盐值，这里假设我们要的盐的长度是8
+  std::string salt = ss.str().substr(0, 20);
+
   return salt;
 }

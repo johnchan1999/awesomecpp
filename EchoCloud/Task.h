@@ -6,10 +6,17 @@
 #include <wfrest/HttpServer.h>
 #include <wfrest/json.hpp>
 #include <workflow/WFTask.h>
+
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
+#include <functional>
+
 using std::string;
 using namespace wfrest;
 
-class Task {
+class Task
+{
 public:
   Task();
   ~Task();
@@ -33,7 +40,7 @@ public:
   void RegisterSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp, string name,
                            string encodePassword, SeriesWork *series);
 
-  void RegisterSignInRedis(WFRedisTask *redistask);
+  void RegisterSignInRedis(WFRedisTask *redistask, HttpResp *resp);
 
   void LoginSignIn(const HttpReq *req, HttpResp *resp, SeriesWork *series);
 
@@ -54,8 +61,11 @@ public:
 
   void FileDownLoad(const HttpReq *req, HttpResp *resp);
 
+  // string salt(string &password);
 private:
-  string salt(string &password);
+  std::string generate_salt();
+  std::string hash_password(const std::string &password, const std::string &salt);
+  std::string generate_salt1(const std::string &password);
 };
 
 #endif

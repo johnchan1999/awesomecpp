@@ -13,23 +13,28 @@ using std::bind;
 using std::function;
 using std::string;
 // using std::vector;
-//using namespace std::placeholders;
+// using namespace std::placeholders;
 
-EchoCloud::EchoCloud(int cnt, Task * task) : _waitGroup(cnt), _task(task) {}
+EchoCloud::EchoCloud(int cnt, Task *task) : _waitGroup(cnt), _task(task) {}
 EchoCloud::~EchoCloud() {}
 
-void EchoCloud::start(unsigned short port) {
+void EchoCloud::start(unsigned short port)
+{
 
-  if (_HttpServer.track().start(port) == 0) {
+  if (_HttpServer.track().start(port) == 0)
+  {
     _HttpServer.list_routes();
     _waitGroup.wait();
     _HttpServer.stop();
-  } else {
+  }
+  else
+  {
     cout << "httptask start failed" << "\n";
   }
 }
 
-void EchoCloud::loadModules() {
+void EchoCloud::loadModules()
+{
 
   loadStaticResourceModule();
   loadUserRegisterModule();
@@ -40,7 +45,8 @@ void EchoCloud::loadModules() {
   loadFileDownloadModule();
 }
 
-void EchoCloud::loadStaticResourceModule() {
+void EchoCloud::loadStaticResourceModule()
+{
   _HttpServer.GET("/user/signup",
                   std::function<void(const HttpReq *, HttpResp *)>(
                       std::bind(&Task::StaticResourceSignUp, _task,
@@ -67,7 +73,8 @@ void EchoCloud::loadStaticResourceModule() {
   _HttpServer.Static("file/upload_files", "static/view/upload_files");
 }
 
-void EchoCloud::loadUserRegisterModule() {
+void EchoCloud::loadUserRegisterModule()
+{
   _HttpServer.POST(
       "/user/signup",
       function<void(const HttpReq *, HttpResp *, SeriesWork *)>(
@@ -75,7 +82,8 @@ void EchoCloud::loadUserRegisterModule() {
                std::placeholders::_2, std::placeholders::_3)));
 }
 
-void EchoCloud::loadUserLoginModule() {
+void EchoCloud::loadUserLoginModule()
+{
   _HttpServer.POST("/user/signin",
                    function<void(const HttpReq *, HttpResp *, SeriesWork *)>(
                        bind(&Task::LoginSignIn, _task, std::placeholders::_1,
@@ -86,6 +94,6 @@ void EchoCloud::loadUserLoginModule() {
 
 void EchoCloud::loadUserInfoModule() {}
 
-void EchoCloud::loadFileQueryModule(){}
-void EchoCloud::loadFileUploadModule(){}
-void EchoCloud::loadFileDownloadModule(){}
+void EchoCloud::loadFileQueryModule() {}
+void EchoCloud::loadFileUploadModule() {}
+void EchoCloud::loadFileDownloadModule() {}
