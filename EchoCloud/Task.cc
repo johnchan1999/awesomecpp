@@ -229,7 +229,7 @@ void Task::LoginSignInRedis(WFRedisTask *redisTask, HttpResp *resp, string name,
           std::bind(&Task::LoginSignInMysql, this, std::placeholders::_1, resp,
                     name, encodePassword, salt_value));
 
-      string sql("select user_pwd from cloudisk.tbl_user where user_name = '");
+      string sql("select user_pwd from echocloud.tbl_user where user_name = '");
       sql += name + "' limit 1";
       cout << "sql:\n"
            << sql << "\n";
@@ -241,6 +241,7 @@ void Task::LoginSignInRedis(WFRedisTask *redisTask, HttpResp *resp, string name,
       cout << "Found user in Redis, value = " << value.string_value() << "\n";
       if (value.string_value() == encodePassword)
       {
+        cout << "Login Success\n";
         Token token(name, salt_value);
         string tokenStr = token.genToken();
         // 3.2构造一个JSON对象，发送给客户端
@@ -252,6 +253,14 @@ void Task::LoginSignInRedis(WFRedisTask *redisTask, HttpResp *resp, string name,
         data["Location"] = "/static/view/home.html"; // 跳转到用户中心页面
         msg["data"] = data;
         resp->String(msg.dump()); // 序列化之后，发送给客户端
+
+        // 将token保存到redis中
+        string redisurl = "redis://127.0.0.1:6379";
+        WFRedisTask *redisTask1 = WFTaskFactory::create_redis_task(
+            redisurl, 0, nullptr);
+        protocol::RedisRequest *req = redisTask1->get_req();
+        req->set_request("HSET", {"token", name, tokenStr});
+        series_of(redisTask)->push_back(redisTask1);
 
         // // 3.3 将Token保存到数据库中
         // auto nextTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
@@ -363,18 +372,171 @@ void Task::LoginSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp, string name,
 }
 
 // void Task::LoginSignInMysqlToken(const HttpReq * req,HttpResp * resp,)
+using std::endl;
+void Task::UserInfo(const HttpReq *req, HttpResp *resp, SeriesWork *series)
+{
 
-void Task::UserInfo(const HttpReq *req, HttpResp *resp, SeriesWork *series) {}
+  string name = req->query("username");
+  string tokenstr = req->query("token");
+  cout << "name:" << name << endl;
+  cout << "token" << tokenstr << endl;
 
-void Task::UserInfoMysql(WFMySQLTask *mysqltask) {}
+  string mysqlurl("mysql://root:cj19991114@localhost");
+  auto mysqlTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, bind(&Task::UserInfoMysql, this, std::placeholders::_1, resp, name));
+  string sql("select signup_at from echocloud.tbl_user where user_name = '");
+  sql += name + "'";
+  mysqlTask->get_req()->set_query(sql);
+  series->push_back(mysqlTask);
+}
+
+void Task::UserInfoMysql(WFMySQLTask *mysqltask, HttpResp *resp, string &name)
+{
+  int state = mysqltask->get_state();
+  int error = mysqltask->get_error();
+  if (state != WFT_STATE_SUCCESS)
+  {
+    printf("%s\n", WFGlobal::get_error_string(state, error));
+    return;
+  }
+  // 1. 检测SQL语句是否存在语法错误
+  auto mysqlResp = mysqltask->get_resp();
+  if (mysqlResp->get_packet_type() == MYSQL_PACKET_ERROR)
+  {
+    printf("ERROR %d: %s\n", mysqlResp->get_error_code(),
+           mysqlResp->get_error_msg().c_str());
+    return;
+  }
+  using namespace protocol;
+  MySQLResultCursor cursor(mysqlResp);
+  if (cursor.get_cursor_status() == MYSQL_STATUS_OK)
+  {
+    // 2. 成功写入数据库了
+    printf("Query OK. %llu row affected.\n", cursor.get_affected_rows());
+  }
+  else if (cursor.get_cursor_status() == MYSQL_STATUS_GET_RESULT)
+  {
+    // 3. 读取数据
+    vector<vector<MySQLCell>> matrix;
+    cursor.fetch_all(matrix);
+    string signupAt = matrix[0][0].as_string();
+    cout << "signupAt:" << signupAt << "\n";
+
+    using Json = nlohmann::json;
+    Json msg;
+    Json data;
+    data["Username"] = name;
+    data["SignupAt"] = signupAt;
+    msg["data"] = data;
+    resp->String(msg.dump());
+  }
+  else
+  {
+    resp->String("error");
+  }
+}
 
 void Task::FileRequire(const HttpResp *req, HttpResp *resp,
                        SeriesWork *series) {}
 
 void Task::FileRequireMysql(WFMySQLTask *mysqltask) {}
 
-void Task::FileUpload(const HttpReq *req, HttpResp *resp, SeriesWork *series) {}
+void Task::FileUpload(const HttpReq *req, HttpResp *resp, SeriesWork *series)
+{
+  string username = req->query("username");
+  string tokenStr = req->query("token");
+  cout << "username:" << username << endl;
+  cout << "token:" << tokenStr << endl;
+  // 2. 对token进行验证
+  string redisurl("redis://127.0.0.1:6379");
+  auto redisTask = WFTaskFactory::create_redis_task(redisurl, 0, bind(&Task::FileUploadRedis, this, std::placeholders::_1, req, resp, tokenStr));
 
+  redisTask->get_req()
+      ->set_request("HGET", {"Token", username});
+  series->push_back(redisTask);
+  // 3. 解析请求：消息体
+  if (req->content_type() == MULTIPART_FORM_DATA)
+  {
+    auto form = req->form();
+    string filename = form["file"].first;
+    string content = form["file"].second;
+    // 4. 将数据写入服务器本地
+    mkdir("tmp", 0755);
+    string filepath = "tmp/" + filename;
+    cout << "filepath:" << filepath << endl;
+    int fd = open(filepath.c_str(), O_CREAT | O_RDWR, 0664);
+    if (fd < 0)
+    {
+      perror("open");
+      return;
+    }
+    write(fd, content.c_str(), content.size());
+    close(fd);
+    resp->String("upload Success");
+
+    // 5. 生成SHA1值
+    Hash hash(filepath);
+    string filehash = hash.sha1();
+    cout << "filehash:" << filehash << endl;
+    // 6.将文件相关信息写入数据库MySQL中
+    string mysqlurl("mysql://root:123@localhost");
+    auto mysqlTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
+    string sql("INSERT INTO echocloud.tbl_user_file(user_name,file_sha1,file_size,file_name)VALUES('");
+    sql += username + "','" + filehash + "', " + std::to_string(content.size()) + ",'" + filename + "')";
+    cout << "\nsql:\n"
+         << sql << endl;
+    mysqlTask->get_req()->set_query(sql);
+    series->push_back(mysqlTask);
+  }
+}
+
+void Task::FileUploadRedis(WFRedisTask *redistask, const HttpReq *req, HttpResp *resp, string &tokenStr)
+{
+  // Step 1: Check the Redis task state
+  if (redistask->get_state() != WFT_STATE_SUCCESS)
+  {
+    resp->set_status_code("500 Internal Server Error");
+    resp->append_output_body("<html><body><h1>500 Internal Server Error</h1><p>Token validation failed due to Redis task error.</p></body></html>");
+    return;
+  }
+
+  protocol::RedisResponse *redis_resp = redistask->get_resp();
+  protocol::RedisValue val;
+  redis_resp->get_result(val);
+  // Step 2: Parse the response from Redis
+  if (val.is_nil())
+  {
+
+    resp->set_status_code("401 Unauthorized");
+    resp->append_output_body("<html><body><h1>401 Unauthorized</h1><p>Invalid or missing token.</p></body></html>");
+    return;
+  }
+  // If the token is valid, you would continue with the file upload process.
+  // For example, you may want to proceed with file saving, database update, etc.
+  // Since these steps would depend on the remaining part of your workflow,
+  // they are not included here. You can, however, use the validation result
+  // to conditionally execute those steps.
+  if (val.is_string())
+  {
+    cout << "tokenStr:" << tokenStr << endl;
+    cout << "val:" << val.string_value() << endl;
+    if (val.string_value() == tokenStr)
+    {
+      cout << "Redis has found tokenStr" << endl;
+    }
+  }
+  resp->set_status_code("200 OK");
+  resp->append_output_body("<html><body><h1>200 OK</h1><p>Token validated successfully.</p></body></html>");
+}
+void Task::FileDownLoad(const HttpReq *req, HttpResp *resp)
+{
+  string filename = req->query("filename");
+  cout << "filename: " << filename << endl;
+
+  // 将下载业务从服务器中分离出去，之后只需要产生一个下载链接就可以了
+  // 这要求我们还需要去部署一个下载服务器
+  string downloadURL = "http://192.168.190.128:8080/" + filename;
+  resp->String(downloadURL);
+}
 string Task::generate_salt()
 {
   const std::string salt_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";

@@ -6,12 +6,15 @@
 #include <wfrest/HttpServer.h>
 #include <wfrest/json.hpp>
 #include <workflow/WFTask.h>
-
+#include <vector>
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
 #include <functional>
-
+#include "Hash.h"
+#include "unixHeader.h"
+#include <workflow/WFTaskFactory.h>
+#include <workflow/RedisMessage.h>
 using std::string;
 using namespace wfrest;
 
@@ -51,14 +54,14 @@ public:
 
   void UserInfo(const HttpReq *req, HttpResp *resp, SeriesWork *series);
 
-  void UserInfoMysql(WFMySQLTask *mysqltask);
+  void UserInfoMysql(WFMySQLTask *mysqltask, HttpResp *resp, string &name);
 
   void FileRequire(const HttpResp *req, HttpResp *resp, SeriesWork *series);
 
   void FileRequireMysql(WFMySQLTask *mysqltask);
 
   void FileUpload(const HttpReq *req, HttpResp *resp, SeriesWork *series);
-
+  void FileUploadRedis(WFRedisTask *redistask, const HttpReq *req, HttpResp *resp, string &tokenStr);
   void FileDownLoad(const HttpReq *req, HttpResp *resp);
 
   // string salt(string &password);
