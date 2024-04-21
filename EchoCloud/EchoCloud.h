@@ -3,9 +3,10 @@
 #include "Task.h"
 #include <wfrest/HttpServer.h>
 #include <workflow/WFFacilities.h>
-class EchoCloud {
+class EchoCloud
+{
 public:
-  EchoCloud(int cnt, Task &task);
+  EchoCloud(int cnt, Task * task);
 
   ~EchoCloud();
 
@@ -25,7 +26,7 @@ private:
 private:
   WFFacilities::WaitGroup _waitGroup;
   wfrest::HttpServer _HttpServer;
-  Task _task;
+  Task *_task;
 };
 
 #endif
