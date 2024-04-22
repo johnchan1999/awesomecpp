@@ -36,7 +36,7 @@ public:
 
   void StaticResourceUpload(const HttpReq *, HttpResp *resp);
 
-  // void StaticResourceUploadFile(const HttpReq *, HttpResp *resp);
+   //void StaticResource(const HttpReq *, HttpResp *resp);
 
   void RegisterSignIn(const HttpReq *req, HttpResp *resp, SeriesWork *series);
 

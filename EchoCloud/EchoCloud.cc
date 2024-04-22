@@ -70,6 +70,9 @@ void EchoCloud::loadStaticResourceModule()
                   function<void(const HttpReq *, HttpResp *)>(
                       bind(&Task::StaticResourceJpeg, _task,
                            std::placeholders::_1, std::placeholders::_2)));
+  _HttpServer.GET("/file/upload", function<void(const HttpReq *, HttpResp *)>(
+                                      bind(&Task::StaticResourceUpload, _task,
+                                           std::placeholders::_1, std::placeholders::_2)));
   _HttpServer.Static("file/upload_files", "static/view/upload_files");
 }
 
@@ -112,7 +115,7 @@ void EchoCloud::loadFileQueryModule()
         //2. 解析请求： 消息体
         string limitCnt = req->form_kv()["limit"];
 
-        string mysqlurl("mysql://root:123@localhost");
+        string mysqlurl("mysql://root:cj19991114@localhost");
         auto mysqlTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, 
         [=](WFMySQLTask * mysqltask){
             //...检测

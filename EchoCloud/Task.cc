@@ -259,7 +259,7 @@ void Task::LoginSignInRedis(WFRedisTask *redisTask, HttpResp *resp, string name,
         WFRedisTask *redisTask1 = WFTaskFactory::create_redis_task(
             redisurl, 0, nullptr);
         protocol::RedisRequest *req = redisTask1->get_req();
-        req->set_request("HSET", {"token", name, tokenStr});
+        req->set_request("HSET", {"Token", name, tokenStr});
         series_of(redisTask)->push_back(redisTask1);
 
         // // 3.3 将Token保存到数据库中
@@ -355,6 +355,8 @@ void Task::LoginSignInMysql(WFMySQLTask *mysqltask, HttpResp *resp, string name,
       auto nextTask = WFTaskFactory::create_redis_task(redisurl, 0, nullptr);
 
       nextTask->get_req()->set_request("HSET", {"Token", name, tokenStr});
+      series_of(mysqltask)->push_back(nextTask);
+      cout << "nexttask has done\n";
       // // 3.3 将Token保存到数据库中
       // string mysqlurl("mysql://root:cj19991114@localhost");
       // auto nextTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
@@ -453,40 +455,40 @@ void Task::FileUpload(const HttpReq *req, HttpResp *resp, SeriesWork *series)
   redisTask->get_req()
       ->set_request("HGET", {"Token", username});
   series->push_back(redisTask);
-  // 3. 解析请求：消息体
-  if (req->content_type() == MULTIPART_FORM_DATA)
-  {
-    auto form = req->form();
-    string filename = form["file"].first;
-    string content = form["file"].second;
-    // 4. 将数据写入服务器本地
-    mkdir("tmp", 0755);
-    string filepath = "tmp/" + filename;
-    cout << "filepath:" << filepath << endl;
-    int fd = open(filepath.c_str(), O_CREAT | O_RDWR, 0664);
-    if (fd < 0)
-    {
-      perror("open");
-      return;
-    }
-    write(fd, content.c_str(), content.size());
-    close(fd);
-    resp->String("upload Success");
+  // // 3. 解析请求：消息体
+  // if (req->content_type() == MULTIPART_FORM_DATA)
+  // {
+  //   auto form = req->form();
+  //   string filename = form["file"].first;
+  //   string content = form["file"].second;
+  //   // 4. 将数据写入服务器本地
+  //   mkdir("tmp", 0755);
+  //   string filepath = "tmp/" + filename;
+  //   cout << "filepath:" << filepath << endl;
+  //   int fd = open(filepath.c_str(), O_CREAT | O_RDWR, 0664);
+  //   if (fd < 0)
+  //   {
+  //     perror("open");
+  //     return;
+  //   }
+  //   write(fd, content.c_str(), content.size());
+  //   close(fd);
+  //   resp->String("upload Success");
 
-    // 5. 生成SHA1值
-    Hash hash(filepath);
-    string filehash = hash.sha1();
-    cout << "filehash:" << filehash << endl;
-    // 6.将文件相关信息写入数据库MySQL中
-    string mysqlurl("mysql://root:123@localhost");
-    auto mysqlTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
-    string sql("INSERT INTO echocloud.tbl_user_file(user_name,file_sha1,file_size,file_name)VALUES('");
-    sql += username + "','" + filehash + "', " + std::to_string(content.size()) + ",'" + filename + "')";
-    cout << "\nsql:\n"
-         << sql << endl;
-    mysqlTask->get_req()->set_query(sql);
-    series->push_back(mysqlTask);
-  }
+  //   // 5. 生成SHA1值
+  //   Hash hash(filepath);
+  //   string filehash = hash.sha1();
+  //   cout << "filehash:" << filehash << endl;
+  //   // 6.将文件相关信息写入数据库MySQL中
+  //   string mysqlurl("mysql://root:123@localhost");
+  //   auto mysqlTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
+  //   string sql("INSERT INTO echocloud.tbl_user_file(user_name,file_sha1,file_size,file_name)VALUES('");
+  //   sql += username + "','" + filehash + "', " + std::to_string(content.size()) + ",'" + filename + "')";
+  //   cout << "\nsql:\n"
+  //        << sql << endl;
+  //   mysqlTask->get_req()->set_query(sql);
+  //   series->push_back(mysqlTask);
+  // }
 }
 
 void Task::FileUploadRedis(WFRedisTask *redistask, const HttpReq *req, HttpResp *resp, string &tokenStr)
@@ -522,10 +524,45 @@ void Task::FileUploadRedis(WFRedisTask *redistask, const HttpReq *req, HttpResp 
     if (val.string_value() == tokenStr)
     {
       cout << "Redis has found tokenStr" << endl;
+      string username = req->query("username");
+      // 3. 解析请求：消息体
+      if (req->content_type() == MULTIPART_FORM_DATA)
+      {
+        auto form = req->form();
+        string filename = form["file"].first;
+        string content = form["file"].second;
+        // 4. 将数据写入服务器本地
+        mkdir("tmp", 0755);
+        string filepath = "tmp/" + filename;
+        cout << "filepath:" << filepath << endl;
+        int fd = open(filepath.c_str(), O_CREAT | O_RDWR, 0664);
+        if (fd < 0)
+        {
+          perror("open");
+          return;
+        }
+        write(fd, content.c_str(), content.size());
+        close(fd);
+        resp->String("upload Success");
+
+        // 5. 生成SHA1值
+        Hash hash(filepath);
+        string filehash = hash.sha1();
+        cout << "filehash:" << filehash << endl;
+        // 6.将文件相关信息写入数据库MySQL中
+        string mysqlurl("mysql://root:cj19991114@localhost");
+        auto mysqlTask = WFTaskFactory::create_mysql_task(mysqlurl, 1, nullptr);
+        string sql("INSERT INTO echocloud.tbl_user_file(user_name,file_sha1,file_size,file_name)VALUES('");
+        sql += username + "','" + filehash + "', " + std::to_string(content.size()) + ",'" + filename + "')";
+        cout << "\nsql:\n"
+             << sql << endl;
+        mysqlTask->get_req()->set_query(sql);
+        series_of(redistask)->push_back(mysqlTask);
+      }
     }
   }
-  resp->set_status_code("200 OK");
-  resp->append_output_body("<html><body><h1>200 OK</h1><p>Token validated successfully.</p></body></html>");
+  // resp->set_status_code("200 OK");
+  // resp->append_output_body("<html><body><h1>200 OK</h1><p>Token validated successfully.</p></body></html>");
 }
 void Task::FileDownLoad(const HttpReq *req, HttpResp *resp)
 {
