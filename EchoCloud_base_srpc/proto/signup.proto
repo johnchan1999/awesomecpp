@@ -1,0 +1,22 @@
+syntax="proto3";
+package signup;
+message ReqSignup{
+    string username = 1;
+    string password = 2;
+}
+message RespSignup{
+    int32 code =1;
+    string message = 2;
+}
+service SignupService{
+    rpc Signup(ReqSignup) returns (RespSignup){}
+}
+
+
+
+
+
+
+
+
+

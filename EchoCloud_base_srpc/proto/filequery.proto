@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package filequery;
+
+message ReqFilequery{
+    string username=1;
+    string tokenstr=2;
+    string extr_message=3;
+    int32 extr_int =4;
+}
+
+
+message RespFilequery{
+    int32 code =1;
+    string message =2;
+    string extr_message=3;
+}
+
+service filequeryService{
+    rpc Filequery(ReqFilequery) returns (RespFilequery){} 
+}

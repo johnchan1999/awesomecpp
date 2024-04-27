@@ -1,0 +1,16 @@
+syntax ="proto3";
+package userinfo;
+message ReqUserinfo{
+    string name = 1;
+    string tokenstr=2;
+    string extr_message=3;
+}
+message RespUserinfo{
+    int32 code =1;
+    string message =2;
+    string extr_message=3;
+}
+
+service UserInfoService{
+    rpc UserInfo(ReqUserinfo) returns (RespUserinfo){}
+}

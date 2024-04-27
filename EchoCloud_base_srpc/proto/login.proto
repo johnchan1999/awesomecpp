@@ -1,0 +1,20 @@
+syntax="proto3";
+
+package login;
+
+
+message ReqLogin{
+    string username = 1;
+    string password = 2;
+}
+
+message ResqLogin{
+    int32 code =1;
+    string message =2; 
+    string username =3;
+}
+
+service loginService{
+
+    rpc Login(ReqLogin) returns (ResqLogin){}
+}
