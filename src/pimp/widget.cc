@@ -1,9 +1,5 @@
-
-
 #include "widget.h"
 #include "widget_impl.h"
-#include <memory>
-
 
 void Widget::draw(){
     widget_impl_->draw(*this);
