@@ -1,0 +1,149 @@
+### C++ ###
+# 预编译文件
+*.gch
+*.pch
+
+# 编译后的动态链接库
+*.so
+*.dylib
+*.dll
+
+# 编译后的静态链接库
+*.lai
+*.la
+*.a
+*.lib
+
+# 可执行文件
+*.exe
+*.out
+*.app
+*.elf
+
+### CMake ###
+# CMake 构建目录
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+*.cmake
+!CMakeLists.txt
+
+# CMake 生成的文件
+**/cmake-build-*/
+
+### IDE 文件 ###
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.csproj
+*.csproj.user
+*.userprefs
+*.suo
+ipch/
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+*.psess
+*.vsp
+*.vspx
+*.vssscc
+*_i.c
+*_p.c
+*_i.h
+*.ilk
+*.meta
+*.obj
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# CLion
+.idea/
+*.iml
+*.iws
+*.ipr
+*.iws
+out/
+.idea_modules/
+
+### C++ 对象文件和中间文件 ###
+# 编译对象文件
+*.slo
+*.lo
+*.o
+*.obj
+
+# 依赖文件
+*.d
+
+# 调试信息
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# 性能分析文件
+callgrind.out*
+perf.data*
+perf.data.old*
+
+### 其他 ###
+# 临时文件
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.directory
+
+# 编译器生成的文件
+compile_commands.json
+
+# 特定于项目的文件
+# 如果有项目特定的文件需要忽略，请在此处添加
+
+# 可能想要保留的文件（取消注释以保留）
+# !lib/*.a       # 如果想要包含特定的库文件
+# !bin/*.dll     # 如果想要包含特定的DLL文件
